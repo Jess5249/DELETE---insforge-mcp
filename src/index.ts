@@ -4,14 +4,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import fetch from 'node-fetch';
-import { readFile } from "fs/promises";
-import path from "path";
-import { fileURLToPath } from "url";
 import { program } from "commander";
 import { handleApiResponse, formatSuccessMessage } from './response-handler.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // Parse command line arguments
 program
@@ -36,6 +30,32 @@ const getApiKey = (toolApiKey?: string): string => {
   throw new Error('API key is required. Either pass --api_key as command line argument or provide api_key in tool calls.');
 };
 
+// Helper function to fetch documentation from backend
+const fetchDocumentation = async (docType: string): Promise<string> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/docs/${docType}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch documentation: ${response.statusText}`);
+    }
+
+    const result = await response.json() as any;
+    if (result.success && result.data?.content) {
+      return result.data.content;
+    }
+    
+    throw new Error('Invalid response format from documentation endpoint');
+  } catch (error) {
+    const errMsg = error instanceof Error ? error.message : "Unknown error occurred";
+    throw new Error(`Unable to retrieve ${docType} documentation: ${errMsg}`);
+  }
+};
+
 // --------------------------------------------------
 // Instruction Tools
 
@@ -49,17 +69,17 @@ server.tool(
   },
   async () => {
     try {
-      const filePath = path.resolve(__dirname, "../../../insforge/docs/insforge-instructions.md");
+      const content = await fetchDocumentation('instructions');
       return { 
         content: [{ 
           type: "text", 
-          text: await readFile(filePath, "utf-8") 
+          text: content
         }] 
       };
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : "Unknown error occurred";
       return { 
-        content: [{ type: "text", text: `Error: Unable to retrieve instructions. (${errMsg})` }] 
+        content: [{ type: "text", text: `Error: ${errMsg}` }] 
       };
     }
   }
@@ -75,17 +95,17 @@ server.tool(
   },
   async () => {
     try {
-      const filePath = path.resolve(__dirname, "../../../insforge/docs/insforge-db-api.md");
+      const content = await fetchDocumentation('db-api');
       return { 
         content: [{ 
           type: "text", 
-          text: await readFile(filePath, "utf-8") 
+          text: content
         }] 
       };
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : "Unknown error occurred";
       return { 
-        content: [{ type: "text", text: `Error: Unable to retrieve database API documentation. (${errMsg})` }] 
+        content: [{ type: "text", text: `Error: ${errMsg}` }] 
       };
     }
   }
@@ -101,17 +121,17 @@ server.tool(
   },
   async () => {
     try {
-      const filePath = path.resolve(__dirname, "../../../insforge/docs/insforge-auth-api.md");
+      const content = await fetchDocumentation('auth-api');
       return { 
         content: [{ 
           type: "text", 
-          text: await readFile(filePath, "utf-8") 
+          text: content
         }] 
       };
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : "Unknown error occurred";
       return { 
-        content: [{ type: "text", text: `Error: Unable to retrieve authentication API documentation. (${errMsg})` }] 
+        content: [{ type: "text", text: `Error: ${errMsg}` }] 
       };
     }
   }
@@ -127,17 +147,17 @@ server.tool(
   },
   async () => {
     try {
-      const filePath = path.resolve(__dirname, "../../../insforge/docs/insforge-storage-api.md");
+      const content = await fetchDocumentation('storage-api');
       return { 
         content: [{ 
           type: "text", 
-          text: await readFile(filePath, "utf-8") 
+          text: content
         }] 
       };
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : "Unknown error occurred";
       return { 
-        content: [{ type: "text", text: `Error: Unable to retrieve storage API documentation. (${errMsg})` }] 
+        content: [{ type: "text", text: `Error: ${errMsg}` }] 
       };
     }
   }
@@ -165,7 +185,7 @@ server.tool(
   async ({ api_key, collection_name, columns }) => {
     try {
       const actualApiKey = getApiKey(api_key);
-      const response = await fetch(`${API_BASE_URL}/collections`, {
+      const response = await fetch(`${API_BASE_URL}/api/collections`, {
         method: 'POST',
         headers: {
           'x-api-key': actualApiKey,
@@ -211,7 +231,7 @@ server.tool(
   async ({ api_key, collection_name }) => {
     try {
       const actualApiKey = getApiKey(api_key);
-      const response = await fetch(`${API_BASE_URL}/collections/${collection_name}`, {
+      const response = await fetch(`${API_BASE_URL}/api/collections/${collection_name}`, {
         method: 'DELETE',
         headers: {
           'x-api-key': actualApiKey,
@@ -266,7 +286,7 @@ server.tool(
       if (drop_columns) body.drop_columns = drop_columns;
       if (rename_columns) body.rename_columns = rename_columns;
 
-      const response = await fetch(`${API_BASE_URL}/collections/${collection_name}`, {
+      const response = await fetch(`${API_BASE_URL}/api/collections/${collection_name}`, {
         method: 'PATCH',
         headers: {
           'x-api-key': actualApiKey,
@@ -310,7 +330,7 @@ server.tool(
   async ({ api_key, collection_name }) => {
     try {
       const actualApiKey = getApiKey(api_key);
-      const response = await fetch(`${API_BASE_URL}/collections/${collection_name}/schema`, {
+      const response = await fetch(`${API_BASE_URL}/api/collections/${collection_name}/schema`, {
         method: 'GET',
         headers: {
           'x-api-key': actualApiKey
@@ -350,7 +370,7 @@ server.tool(
   async ({ api_key }) => {
     try {
       const actualApiKey = getApiKey(api_key);
-      const response = await fetch(`${API_BASE_URL}/mcp/metadata`, {
+      const response = await fetch(`${API_BASE_URL}/api/metadata`, {
         method: 'GET',
         headers: {
           'x-api-key': actualApiKey
