@@ -62,11 +62,8 @@ const fetchDocumentation = async (docType: string): Promise<string> => {
 // Get main instructions for AI agents
 server.tool(
   "get-instructions",
-  {
-    title: "Get Instructions",
-    description: "Retrieves the latest Insforge OSS documentation, containing guidelines for AI agents to automatically set up and manage backend components.",
-    inputSchema: z.object({})
-  },
+  "Retrieves the latest Insforge OSS documentation, containing guidelines for AI agents to automatically set up and manage backend components",
+  {},
   async () => {
     try {
       const content = await fetchDocumentation('instructions');
@@ -88,11 +85,8 @@ server.tool(
 // Get database API documentation  
 server.tool(
   "get-db-api",
-  {
-    title: "Get Database API",
-    description: "Retrieves documentation for Insforge OSS database CRUD operations, including automatic table creation and smart schema management.",
-    inputSchema: z.object({})
-  },
+  "Retrieves documentation for Insforge OSS database CRUD operations, including automatic table creation and smart schema management",
+  {},
   async () => {
     try {
       const content = await fetchDocumentation('db-api');
@@ -113,12 +107,9 @@ server.tool(
 
 // Get authentication API documentation
 server.tool(
-  "get-auth-api", 
-  {
-    title: "Get Authentication API",
-    description: "Retrieves documentation for Insforge OSS authentication API, including JWT tokens, project management, and API key generation.",
-    inputSchema: z.object({})
-  },
+  "get-auth-api",
+  "Retrieves documentation for Insforge OSS authentication API, including JWT tokens, project management, and API key generation",
+  {},
   async () => {
     try {
       const content = await fetchDocumentation('auth-api');
@@ -140,11 +131,8 @@ server.tool(
 // Get storage API documentation
 server.tool(
   "get-storage-api",
-  {
-    title: "Get Storage API",
-    description: "Retrieves documentation for Insforge OSS file storage API, including file uploads, metadata handling, and automatic cleanup.",
-    inputSchema: z.object({})
-  },
+  "Retrieves documentation for Insforge OSS file storage API, including file uploads, metadata handling, and automatic cleanup",
+  {},
   async () => {
     try {
       const content = await fetchDocumentation('storage-api');
@@ -169,18 +157,15 @@ server.tool(
 
 server.tool(
   "create-table",
+  "Create a new collection/table with explicit schema definition",
   {
-    title: "Create Table",
-    description: "Create a new collection/table with explicit schema definition",
-    inputSchema: z.object({
-      api_key: z.string().optional().describe("API key for authentication (optional if provided via --api_key)"),
-      collection_name: z.string().describe("Name of the collection to create"),
-      columns: z.array(z.object({
-        name: z.string().describe("Column name"),
-        type: z.string().describe("Column type (e.g., TEXT, INTEGER, REAL, BLOB)"),
-        nullable: z.boolean().describe("Whether the column can be null")
-      })).describe("Array of column definitions")
-    })
+    api_key: z.string().optional().describe("API key for authentication (optional if provided via --api_key)"),
+    collection_name: z.string().describe("Name of the collection to create"),
+    columns: z.array(z.object({
+      name: z.string().describe("Column name"),
+      type: z.string().describe("Column type (e.g., TEXT, INTEGER, REAL, BLOB)"),
+      nullable: z.boolean().describe("Whether the column can be null")
+    })).describe("Array of column definitions")
   },
   async ({ api_key, collection_name, columns }) => {
     try {
@@ -220,13 +205,10 @@ server.tool(
 
 server.tool(
   "delete-table",
+  "Permanently deletes a table and all its data",
   {
-    title: "Delete Table",
-    description: "Permanently deletes a table and all its data",
-    inputSchema: z.object({
-      api_key: z.string().optional().describe("API key for authentication (optional if provided via --api_key)"),
-      collection_name: z.string().describe("Name of the collection to delete")
-    })
+    api_key: z.string().optional().describe("API key for authentication (optional if provided via --api_key)"),
+    collection_name: z.string().describe("Name of the collection to delete")
   },
   async ({ api_key, collection_name }) => {
     try {
@@ -262,21 +244,18 @@ server.tool(
 
 server.tool(
   "modify-table",
+  "Alters table schema - add, drop, or rename columns",
   {
-    title: "Modify Table",
-    description: "Alters table schema - add, drop, or rename columns",
-    inputSchema: z.object({
-      api_key: z.string().optional().describe("API key for authentication (optional if provided via --api_key)"),
-      collection_name: z.string().describe("Name of the collection to modify"),
-      add_columns: z.array(z.object({
-        name: z.string().describe("Column name"),
-        type: z.string().describe("Column type (TEXT, INTEGER, REAL, BLOB)"),
-        nullable: z.boolean().optional().describe("Whether the column allows NULL values"),
-        default_value: z.string().optional().describe("Default value for the column")
-      })).optional().describe("Columns to add to the collection"),
-      drop_columns: z.array(z.string()).optional().describe("Names of columns to drop from the collection"),
-      rename_columns: z.record(z.string()).optional().describe("Object mapping old column names to new names")
-    })
+    api_key: z.string().optional().describe("API key for authentication (optional if provided via --api_key)"),
+    collection_name: z.string().describe("Name of the collection to modify"),
+    add_columns: z.array(z.object({
+      name: z.string().describe("Column name"),
+      type: z.string().describe("Column type (TEXT, INTEGER, REAL, BLOB)"),
+      nullable: z.boolean().optional().describe("Whether the column allows NULL values"),
+      default_value: z.string().optional().describe("Default value for the column")
+    })).optional().describe("Columns to add to the collection"),
+    drop_columns: z.array(z.string()).optional().describe("Names of columns to drop from the collection"),
+    rename_columns: z.record(z.string()).optional().describe("Object mapping old column names to new names")
   },
   async ({ api_key, collection_name, add_columns, drop_columns, rename_columns }) => {
     try {
@@ -319,13 +298,10 @@ server.tool(
 // Get table schema
 server.tool(
   "get-table-schema",
+  "Returns the schema of a specific table",
   {
-    title: "Get Table Schema",
-    description: "Returns the schema of a specific table",
-    inputSchema: z.object({
-      api_key: z.string().optional().describe("API key for authentication (optional if provided via --api_key)"),
-      collection_name: z.string().describe("Name of the collection")
-    })
+    api_key: z.string().optional().describe("API key for authentication (optional if provided via --api_key)"),
+    collection_name: z.string().describe("Name of the collection")
   },
   async ({ api_key, collection_name }) => {
     try {
@@ -360,12 +336,9 @@ server.tool(
 
 server.tool(
   "get-backend-metadata",
+  "Index all backend metadata",
   {
-    title: "Get Backend Metadata",
-    description: "Index all backend metadata",
-    inputSchema: z.object({
-      api_key: z.string().describe("API key for authentication")
-    })
+    api_key: z.string().optional().describe("API key for authentication (optional if provided via --api_key)")
   },
   async ({ api_key }) => {
     try {
@@ -404,14 +377,11 @@ server.tool(
 // Create storage bucket
 server.tool(
   "create-bucket",
+  "Create new storage bucket",
   {
-    title: "Create Bucket",
-    description: "Create new storage bucket",
-    inputSchema: z.object({
-      api_key: z.string().optional().describe("API key for authentication (optional if provided via --api_key)"),
-      bucket_name: z.string().describe("Name of the bucket to create"),
-      public: z.boolean().optional().describe("Whether the bucket should be public (optional)")
-    })
+    api_key: z.string().optional().describe("API key for authentication (optional if provided via --api_key)"),
+    bucket_name: z.string().describe("Name of the bucket to create"),
+    public: z.boolean().optional().describe("Whether the bucket should be public (optional)")
   },
   async ({ api_key, bucket_name }) => {
     try {
@@ -449,11 +419,8 @@ server.tool(
 // List storage buckets
 server.tool(
   "list-buckets",
-  {
-    title: "List Buckets",
-    description: "Lists all storage buckets",
-    inputSchema: z.object({})
-  },
+  "Lists all storage buckets",
+  {},
   async () => {
     try {
       // This endpoint doesn't require authentication in the current implementation
@@ -488,13 +455,10 @@ server.tool(
 // Delete storage bucket
 server.tool(
   "delete-bucket",
+  "Deletes a storage bucket",
   {
-    title: "Delete Bucket",
-    description: "Deletes a storage bucket",
-    inputSchema: z.object({
-      api_key: z.string().optional().describe("API key for authentication (optional if provided via --api_key)"),
-      bucket_name: z.string().describe("Name of the bucket to delete")
-    })
+    api_key: z.string().optional().describe("API key for authentication (optional if provided via --api_key)"),
+    bucket_name: z.string().describe("Name of the bucket to delete")
   },
   async ({ api_key, bucket_name }) => {
     try {
