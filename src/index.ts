@@ -82,6 +82,24 @@ server.tool(
   }
 );
 
+server.tool(
+  "get-api-key",
+  "Retrieves the API key for the Insforge OSS backend. This is used to authenticate all requests to the backend.",
+  {},
+  async () => {
+    try {
+      return {
+        content: [{ type: "text", text: `API key: ${getApiKey()}` }]
+      };
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : "Unknown error occurred";
+      return { 
+        content: [{ type: "text", text: `Error: ${errMsg}` }] 
+      };
+    }
+  }
+);
+
 // Get database API documentation  
 server.tool(
   "get-db-api",
@@ -157,27 +175,27 @@ server.tool(
 
 server.tool(
   "create-table",
-  "Create a new collection/table with explicit schema definition",
+  "Create a new table with explicit schema definition",
   {
     api_key: z.string().optional().describe("API key for authentication (optional if provided via --api_key)"),
-    collection_name: z.string().describe("Name of the collection to create"),
+    table_name: z.string().describe("Name of the table to create"),
     columns: z.array(z.object({
       name: z.string().describe("Column name"),
       type: z.string().describe("Column type (e.g., string, integer, float, boolean, datetime, uuid, json)"),
       nullable: z.boolean().describe("Whether the column can be null")
     })).describe("Array of column definitions")
   },
-  async ({ api_key, collection_name, columns }) => {
+  async ({ api_key, table_name, columns }) => {
     try {
       const actualApiKey = getApiKey(api_key);
-      const response = await fetch(`${API_BASE_URL}/api/collections`, {
+      const response = await fetch(`${API_BASE_URL}/api/database/tables`, {
         method: 'POST',
         headers: {
           'x-api-key': actualApiKey,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          collection_name,
+          table_name,
           columns
         })
       });
@@ -187,7 +205,7 @@ server.tool(
       return {
         content: [{
           type: "text",
-          text: formatSuccessMessage('Collection created', result)
+          text: formatSuccessMessage('Table created', result)
         }]
       };
     } catch (error) {
@@ -195,7 +213,7 @@ server.tool(
       return {
         content: [{
           type: "text",
-          text: `Error creating collection: ${errMsg}`
+          text: `Error creating table: ${errMsg}`
         }],
         isError: true
       };
@@ -208,12 +226,12 @@ server.tool(
   "Permanently deletes a table and all its data",
   {
     api_key: z.string().optional().describe("API key for authentication (optional if provided via --api_key)"),
-    collection_name: z.string().describe("Name of the collection to delete")
+    table_name: z.string().describe("Name of the table to delete")
   },
-  async ({ api_key, collection_name }) => {
+  async ({ api_key, table_name }) => {
     try {
       const actualApiKey = getApiKey(api_key);
-      const response = await fetch(`${API_BASE_URL}/api/collections/${collection_name}`, {
+      const response = await fetch(`${API_BASE_URL}/api/database/tables/${table_name}`, {
         method: 'DELETE',
         headers: {
           'x-api-key': actualApiKey,
@@ -226,7 +244,7 @@ server.tool(
       return {
         content: [{
           type: "text",
-          text: formatSuccessMessage('Collection deleted', result)
+          text: formatSuccessMessage('Table deleted', result)
         }]
       };
     } catch (error) {
@@ -234,7 +252,7 @@ server.tool(
       return {
         content: [{
           type: "text",
-          text: `Error deleting collection: ${errMsg}`
+          text: `Error deleting table: ${errMsg}`
         }],
         isError: true
       };
@@ -247,17 +265,17 @@ server.tool(
   "Alters table schema - add, drop, or rename columns",
   {
     api_key: z.string().optional().describe("API key for authentication (optional if provided via --api_key)"),
-    collection_name: z.string().describe("Name of the collection to modify"),
+    table_name: z.string().describe("Name of the table to modify"),
     add_columns: z.array(z.object({
       name: z.string().describe("Column name"),
       type: z.string().describe("Column type (string, integer, float, boolean, datetime, uuid, json)"),
       nullable: z.boolean().optional().describe("Whether the column allows NULL values"),
       default_value: z.string().optional().describe("Default value for the column")
-    })).optional().describe("Columns to add to the collection"),
-    drop_columns: z.array(z.string()).optional().describe("Names of columns to drop from the collection"),
+    })).optional().describe("Columns to add to the table"),
+    drop_columns: z.array(z.string()).optional().describe("Names of columns to drop from the table"),
     rename_columns: z.record(z.string()).optional().describe("Object mapping old column names to new names")
   },
-  async ({ api_key, collection_name, add_columns, drop_columns, rename_columns }) => {
+  async ({ api_key, table_name, add_columns, drop_columns, rename_columns }) => {
     try {
       const actualApiKey = getApiKey(api_key);
       const body: any = {};
@@ -265,7 +283,7 @@ server.tool(
       if (drop_columns) body.drop_columns = drop_columns;
       if (rename_columns) body.rename_columns = rename_columns;
 
-      const response = await fetch(`${API_BASE_URL}/api/collections/${collection_name}`, {
+      const response = await fetch(`${API_BASE_URL}/api/database/tables/${table_name}`, {
         method: 'PATCH',
         headers: {
           'x-api-key': actualApiKey,
@@ -279,7 +297,7 @@ server.tool(
       return {
         content: [{
           type: "text",
-          text: formatSuccessMessage('Collection modified', result)
+          text: formatSuccessMessage('Table modified', result)
         }]
       };
     } catch (error) {
@@ -287,7 +305,7 @@ server.tool(
       return {
         content: [{
           type: "text",
-          text: `Error modifying collection: ${errMsg}`
+          text: `Error modifying table: ${errMsg}`
         }],
         isError: true
       };
@@ -301,12 +319,12 @@ server.tool(
   "Returns the schema of a specific table",
   {
     api_key: z.string().optional().describe("API key for authentication (optional if provided via --api_key)"),
-    collection_name: z.string().describe("Name of the collection")
+    table_name: z.string().describe("Name of the table")
   },
-  async ({ api_key, collection_name }) => {
+  async ({ api_key, table_name }) => {
     try {
       const actualApiKey = getApiKey(api_key);
-      const response = await fetch(`${API_BASE_URL}/api/collections/${collection_name}/schema`, {
+      const response = await fetch(`${API_BASE_URL}/api/database/tables/${table_name}/schema`, {
         method: 'GET',
         headers: {
           'x-api-key': actualApiKey
