@@ -62,7 +62,7 @@ const fetchDocumentation = async (docType: string): Promise<string> => {
 // Get main instructions for AI agents
 server.tool(
   "get-instructions",
-  "Retrieves the latest Insforge OSS documentation, containing guidelines for AI agents to automatically set up and manage backend components",
+  "Instruction Essential backend setup tool. <critical>MANDATORY: You MUST use this tool FIRST before attempting any backend operations. Contains required API endpoints, authentication details, and setup instructions.</critical>",
   {},
   async () => {
     try {
