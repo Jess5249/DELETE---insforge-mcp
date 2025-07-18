@@ -183,7 +183,12 @@ server.tool(
       name: z.string().describe("Column name"),
       type: z.string().describe("Column type (e.g., string, integer, float, boolean, datetime, uuid, json)"),
       unique: z.boolean().optional().describe("Whether the column is unique"),
-      nullable: z.boolean().describe("Whether the column can be null")
+      nullable: z.boolean().describe("Whether the column can be null"),
+      default_value: z.string().optional().describe("Default value for the column"),
+      foreign_key: z.object({
+        table: z.string().describe("Name of the foreign table"),
+        column: z.string().describe("Name of the foreign column")
+      }).optional().describe("Foreign key information")
     })).describe("Array of column definitions")
   },
   async ({ api_key, table_name, columns }) => {
@@ -272,7 +277,11 @@ server.tool(
       type: z.string().describe("Column type (string, integer, float, boolean, datetime, uuid, json)"),
       unique: z.boolean().optional().describe("Whether the column is unique"),
       nullable: z.boolean().optional().describe("Whether the column allows NULL values"),
-      default_value: z.string().optional().describe("Default value for the column")
+      default_value: z.string().optional().describe("Default value for the column"),
+      foreign_key: z.object({
+        table: z.string().describe("Name of the foreign table"),
+        column: z.string().describe("Name of the foreign column")
+      }).optional().describe("Foreign key information")
     })).optional().describe("Columns to add to the table"),
     drop_columns: z.array(z.string()).optional().describe("Names of columns to drop from the table"),
     rename_columns: z.record(z.string()).optional().describe("Object mapping old column names to new names")
