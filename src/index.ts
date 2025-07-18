@@ -310,15 +310,29 @@ server.tool(
       }).optional().describe("Foreign key information")
     })).optional().describe("Columns to add to the table"),
     drop_columns: z.array(z.string()).optional().describe("Names of columns to drop from the table"),
-    rename_columns: z.record(z.string()).optional().describe("Object mapping old column names to new names")
+    rename_columns: z.record(z.string()).optional().describe("Object mapping old column names to new names"),
+    add_fkey_columns: z.array(z.object({
+      name: z.string().describe("Name of existing column to add foreign key to"),
+      foreign_key: z.object({
+        table: z.string().describe("Name of the foreign table"),
+        column: z.string().describe("Name of the foreign column"),
+        on_delete: z.string().optional().describe("ON DELETE action (CASCADE, SET NULL, RESTRICT, NO ACTION)"),
+        on_update: z.string().optional().describe("ON UPDATE action (CASCADE, SET NULL, RESTRICT, NO ACTION)")
+      }).describe("Foreign key constraint details")
+    })).optional().describe("Foreign key constraints to add to existing columns"),
+    drop_fkey_columns: z.array(z.object({
+      name: z.string().describe("Name of column to remove foreign key from")
+    })).optional().describe("Foreign key constraints to remove from columns")
   },
-  async ({ api_key, table_name, add_columns, drop_columns, rename_columns }) => {
+  async ({ api_key, table_name, add_columns, drop_columns, rename_columns, add_fkey_columns, drop_fkey_columns }) => {
     try {
       const actualApiKey = getApiKey(api_key);
       const body: any = {};
       if (add_columns) body.add_columns = add_columns;
       if (drop_columns) body.drop_columns = drop_columns;
       if (rename_columns) body.rename_columns = rename_columns;
+      if (add_fkey_columns) body.add_fkey_columns = add_fkey_columns;
+      if (drop_fkey_columns) body.drop_fkey_columns = drop_fkey_columns;
 
       const response = await fetch(`${API_BASE_URL}/api/database/tables/${table_name}`, {
         method: 'PATCH',
