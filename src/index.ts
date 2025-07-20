@@ -6,6 +6,8 @@ import { z } from "zod";
 import fetch from 'node-fetch';
 import { program } from "commander";
 import { handleApiResponse, formatSuccessMessage } from './response-handler.js';
+import { promises as fs } from 'fs';
+import path from 'path';
 
 // Parse command line arguments
 program
@@ -30,7 +32,7 @@ const getApiKey = (toolApiKey?: string): string => {
   throw new Error('API key is required. Either pass --api_key as command line argument or provide api_key in tool calls.');
 };
 
-// Helper function to fetch documentation from backend
+// Helper function to rdocumentation from backend
 const fetchDocumentation = async (docType: string): Promise<string> => {
   try {
     const response = await fetch(`${API_BASE_URL}/api/docs/${docType}`, {
@@ -207,26 +209,35 @@ server.tool(
 
       if (!response.ok) {
         throw new Error(`Failed to fetch project rules: ${response.statusText}`);
-      }
+      } 
 
       const result = await response.json() as { 
         success: boolean; 
         data?: { 
-          claudeMd?: string;
-          cursorRules?: string;
+          type?: string;
+          content?: string;
         } 
       };
       
       if (result.success && result.data) {
         const outputs = [];
         
-        if (result.data.claudeMd) {
-          outputs.push(`CLAUDE.md content:\n${result.data.claudeMd}\n${'='.repeat(80)}\nSave to: CLAUDE.md`);
-        }
-        
-        if (result.data.cursorRules) {
-          outputs.push(`Cursor rules content:\n${result.data.cursorRules}\n${'='.repeat(80)}\nSave to: .cursor/rules/cursor-rules.mdc`);
-        }
+        // Handle new format with content field
+        if (result.data.content) {
+          // Save as CLAUDE.md
+          const claudeMdPath = path.join(process.cwd(), 'CLAUDE.md');
+          await fs.writeFile(claudeMdPath, result.data.content, 'utf-8');
+          outputs.push(`✓ Saved CLAUDE.md to: ${claudeMdPath}`);
+          
+          // Also save as cursor rules (same content works for both)
+          const cursorRulesDir = path.join(process.cwd(), '.cursor', 'rules');
+          const cursorRulesPath = path.join(cursorRulesDir, 'cursor-rules.md');
+          
+          // Create directory if it doesn't exist
+          await fs.mkdir(cursorRulesDir, { recursive: true });
+          await fs.writeFile(cursorRulesPath, result.data.content, 'utf-8');
+          outputs.push(`✓ Saved cursor rules to: ${cursorRulesPath}`);
+        } 
         
         if (outputs.length === 0) {
           throw new Error('No project rules found in response');
@@ -235,7 +246,7 @@ server.tool(
         return {
           content: [{
             type: "text",
-            text: outputs.join('\n\n')
+            text: outputs.join('\n')
           }]
         };
       }
