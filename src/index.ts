@@ -191,6 +191,69 @@ server.tool(
   }
 );
 
+// Download project-specific rules (CLAUDE.md and cursor rules)
+server.tool(
+  "download-project-rules",
+  "Downloads CLAUDE.md and cursor rules from the backend docs to your local project",
+  {},
+  async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/docs/project`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch project rules: ${response.statusText}`);
+      }
+
+      const result = await response.json() as { 
+        success: boolean; 
+        data?: { 
+          claudeMd?: string;
+          cursorRules?: string;
+        } 
+      };
+      
+      if (result.success && result.data) {
+        const outputs = [];
+        
+        if (result.data.claudeMd) {
+          outputs.push(`CLAUDE.md content:\n${result.data.claudeMd}\n${'='.repeat(80)}\nSave to: CLAUDE.md`);
+        }
+        
+        if (result.data.cursorRules) {
+          outputs.push(`Cursor rules content:\n${result.data.cursorRules}\n${'='.repeat(80)}\nSave to: .cursor/rules/cursor-rules.mdc`);
+        }
+        
+        if (outputs.length === 0) {
+          throw new Error('No project rules found in response');
+        }
+        
+        return {
+          content: [{
+            type: "text",
+            text: outputs.join('\n\n')
+          }]
+        };
+      }
+      
+      throw new Error('Invalid response format from project rules endpoint');
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : "Unknown error occurred";
+      return {
+        content: [{
+          type: "text",
+          text: `Error downloading project rules: ${errMsg}`
+        }],
+        isError: true
+      };
+    }
+  }
+);
+
 // --------------------------------------------------
 // Core Database Tools
 
