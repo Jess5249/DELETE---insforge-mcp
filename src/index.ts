@@ -231,7 +231,7 @@ server.tool(
           
           // Also save as cursor rules (same content works for both)
           const cursorRulesDir = path.join(process.cwd(), '.cursor', 'rules');
-          const cursorRulesPath = path.join(cursorRulesDir, 'cursor-rules.md');
+          const cursorRulesPath = path.join(cursorRulesDir, 'cursor-rules.mdc');
           
           // Create directory if it doesn't exist
           await fs.mkdir(cursorRulesDir, { recursive: true });
