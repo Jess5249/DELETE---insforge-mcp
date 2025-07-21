@@ -42,13 +42,9 @@ const fetchDocumentation = async (docType: string): Promise<string> => {
       }
     });
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch documentation: ${response.statusText}`);
-    }
-
     const result = await handleApiResponse(response);
     
-    // Traditional REST format - data returned directly
+    // Traditional REST format - data returned directly as { type, content }
     if (result && typeof result === 'object' && 'content' in result) {
       return result.content;
     }
@@ -209,41 +205,25 @@ server.tool(
         }
       });
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch project rules: ${response.statusText}`);
-      } 
-
-      const result = await response.json() as { 
-        success: boolean; 
-        data?: { 
-          type?: string;
-          content?: string;
-        } 
-      };
+      const result = await handleApiResponse(response);
       
-      if (result.success && result.data) {
+      // Traditional REST format - data returned directly as { type, content }
+      if (result && typeof result === 'object' && 'content' in result) {
         const outputs = [];
         
-        // Handle new format with content field
-        if (result.data.content) {
-          // Save as CLAUDE.md
-          const claudeMdPath = path.join(process.cwd(), 'CLAUDE.md');
-          await fs.writeFile(claudeMdPath, result.data.content, 'utf-8');
-          outputs.push(`✓ Saved CLAUDE.md to: ${claudeMdPath}`);
-          
-          // Also save as cursor rules (same content works for both)
-          const cursorRulesDir = path.join(process.cwd(), '.cursor', 'rules');
-          const cursorRulesPath = path.join(cursorRulesDir, 'cursor-rules.mdc');
-          
-          // Create directory if it doesn't exist
-          await fs.mkdir(cursorRulesDir, { recursive: true });
-          await fs.writeFile(cursorRulesPath, result.data.content, 'utf-8');
-          outputs.push(`✓ Saved cursor rules to: ${cursorRulesPath}`);
-        } 
+        // Save as CLAUDE.md
+        const claudeMdPath = path.join(process.cwd(), 'CLAUDE.md');
+        await fs.writeFile(claudeMdPath, result.content, 'utf-8');
+        outputs.push(`✓ Saved CLAUDE.md to: ${claudeMdPath}`);
         
-        if (outputs.length === 0) {
-          throw new Error('No project rules found in response');
-        }
+        // Also save as cursor rules (same content works for both)
+        const cursorRulesDir = path.join(process.cwd(), '.cursor', 'rules');
+        const cursorRulesPath = path.join(cursorRulesDir, 'cursor-rules.mdc');
+        
+        // Create directory if it doesn't exist
+        await fs.mkdir(cursorRulesDir, { recursive: true });
+        await fs.writeFile(cursorRulesPath, result.content, 'utf-8');
+        outputs.push(`✓ Saved cursor rules to: ${cursorRulesPath}`);
         
         return {
           content: [{
