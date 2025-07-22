@@ -274,6 +274,23 @@ server.tool(
   async ({ api_key, table_name, columns }) => {
     try {
       const actualApiKey = getApiKey(api_key);
+      
+      // Preprocess columns to format default values based on type
+      const processedColumns = columns.map(col => {
+        if (col.defaultValue !== undefined) {
+          const needsQuotes = ['string', 'datetime'].includes(col.type);
+          const isFunction = col.defaultValue.includes('(');
+          const isAlreadyQuoted = col.defaultValue.startsWith("'") && col.defaultValue.endsWith("'");
+          
+          // Add quotes for string/datetime values that aren't functions or already quoted
+          if (needsQuotes && !isFunction && !isAlreadyQuoted) {
+            col.defaultValue = `'${col.defaultValue}'`;
+          }
+          // Numbers and booleans can be used as-is
+        }
+        return col;
+      });
+      
       const response = await fetch(`${API_BASE_URL}/api/database/tables`, {
         method: 'POST',
         headers: {
@@ -282,7 +299,7 @@ server.tool(
         },
         body: JSON.stringify({
           table_name,
-          columns
+          columns: processedColumns
         })
       });
 
