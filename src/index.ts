@@ -56,6 +56,44 @@ const fetchDocumentation = async (docType: string): Promise<string> => {
   }
 };
 
+// Helper function to preprocess column default values based on type
+const preprocessColumnDefaults = <T extends { defaultValue?: string; type?: string }>(columns: T[]): T[] => {
+  return columns.map(col => {
+    if (col.defaultValue !== undefined) {
+      const isFunction = col.defaultValue.includes('(');
+      const isAlreadyQuoted = col.defaultValue.startsWith("'") && col.defaultValue.endsWith("'");
+      
+      // Handle different column types
+      switch(col.type) {
+        case 'string':
+          // Add quotes for string values that aren't functions or already quoted
+          if (!isFunction && !isAlreadyQuoted) {
+            col.defaultValue = `'${col.defaultValue}'`;
+          }
+          break;
+          
+        case 'datetime':
+          // For datetime, use functions like now() or CURRENT_TIMESTAMP
+          // If it's not a function and not CURRENT_TIMESTAMP, it's likely an error
+          if (!isFunction && col.defaultValue !== 'CURRENT_TIMESTAMP') {
+            console.warn(`Warning: datetime default '${col.defaultValue}' may not work. Use 'now()' or 'CURRENT_TIMESTAMP'`);
+          }
+          break;
+          
+        case 'json':
+          // JSON defaults need to be wrapped in single quotes
+          if (!isAlreadyQuoted) {
+            col.defaultValue = `'${col.defaultValue}'`;
+          }
+          break;
+          
+        // uuid, integer, float, boolean can be used as-is
+      }
+    }
+    return col;
+  });
+};
+
 // --------------------------------------------------
 // Instruction Tools
 
@@ -276,40 +314,7 @@ server.tool(
       const actualApiKey = getApiKey(api_key);
       
       // Preprocess columns to format default values based on type
-      const processedColumns = columns.map(col => {
-        if (col.defaultValue !== undefined) {
-          const isFunction = col.defaultValue.includes('(');
-          const isAlreadyQuoted = col.defaultValue.startsWith("'") && col.defaultValue.endsWith("'");
-          
-          // Handle different column types
-          switch(col.type) {
-            case 'string':
-              // Add quotes for string values that aren't functions or already quoted
-              if (!isFunction && !isAlreadyQuoted) {
-                col.defaultValue = `'${col.defaultValue}'`;
-              }
-              break;
-              
-            case 'datetime':
-              // For datetime, use functions like now() or CURRENT_TIMESTAMP
-              // If it's not a function and not CURRENT_TIMESTAMP, it's likely an error
-              if (!isFunction && col.defaultValue !== 'CURRENT_TIMESTAMP') {
-                console.warn(`Warning: datetime default '${col.defaultValue}' may not work. Use 'now()' or 'CURRENT_TIMESTAMP'`);
-              }
-              break;
-              
-            case 'json':
-              // JSON defaults need to be wrapped in single quotes
-              if (!isAlreadyQuoted) {
-                col.defaultValue = `'${col.defaultValue}'`;
-              }
-              break;
-              
-            // uuid, integer, float, boolean can be used as-is
-          }
-        }
-        return col;
-      });
+      const processedColumns = preprocessColumnDefaults(columns);
       
       const response = await fetch(`${API_BASE_URL}/api/database/tables`, {
         method: 'POST',
@@ -421,7 +426,12 @@ server.tool(
     try {
       const actualApiKey = getApiKey(api_key);
       const body: any = {};
-      if (add_columns) body.add_columns = add_columns;
+      
+      // Preprocess add_columns to format default values
+      if (add_columns) {
+        body.add_columns = preprocessColumnDefaults(add_columns);
+      }
+      
       if (drop_columns) body.drop_columns = drop_columns;
       if (rename_columns) body.rename_columns = rename_columns;
       if (add_fkey_columns) body.add_fkey_columns = add_fkey_columns;
