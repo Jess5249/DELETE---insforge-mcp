@@ -59,7 +59,7 @@ const fetchDocumentation = async (docType: string): Promise<string> => {
 // Helper function to fetch insforge-project.md content
 const fetchInsforgeProjectContext = async (): Promise<string | null> => {
   try {
-    return await fetchDocumentation('insforge-project');
+    return await fetchDocumentation('project');
   } catch (error) {
     console.error('Failed to fetch insforge-project.md:', error);
     return null;
