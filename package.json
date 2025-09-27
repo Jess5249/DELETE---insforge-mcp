@@ -1,6 +1,6 @@
 {
   "name": "@insforge/mcp",
-  "version": "1.1.0",
+  "version": "1.1.2",
   "description": "MCP (Model Context Protocol) server for Insforge backend-as-a-service",
   "type": "module",
   "main": "dist/index.js",
@@ -24,7 +24,7 @@
     "dist"
   ],
   "dependencies": {
-    "@insforge/shared-schemas": "^1.1.0",
+    "@insforge/shared-schemas": "^1.1.1",
     "@modelcontextprotocol/sdk": "^1.15.1",
     "commander": "^14.0.0",
     "form-data": "^4.0.4",

@@ -9,16 +9,14 @@ import { handleApiResponse, formatSuccessMessage } from './response-handler.js';
 import { UsageTracker } from './usage-tracker.js';
 import {
   ColumnType,
-  CreateTableRequest,
-  UpdateTableSchemaRequest,
-  createTableRequestSchema,
-  updateTableSchemaRequestSchema,
   CreateBucketRequest,
   createBucketRequestSchema,
   rawSQLRequestSchema,
   RawSQLRequest,
   bulkUpsertRequestSchema,
-  BulkUpsertRequest,
+  FunctionUpdateRequest,
+  functionUpdateRequestSchema,
+  functionUploadRequestSchema,
 } from '@insforge/shared-schemas';
 
 // Parse command line arguments
@@ -49,7 +47,7 @@ async function trackToolUsage(toolName: string, success: boolean = true): Promis
 }
 
 // Wrapper function to add usage tracking to tools
-function withUsageTracking<T extends any[], R>(
+function withUsageTracking<T extends unknown[], R>(
   toolName: string,
   handler: (...args: T) => Promise<R>
 ): (...args: T) => Promise<R> {
@@ -128,57 +126,6 @@ const addBackgroundContext = async (response: any): Promise<any> => {
   return response;
 };
 
-// Helper function to preprocess column default values based on type
-// This function works with the shared schema column type
-const preprocessColumnDefaults = <
-  T extends {
-    defaultValue?: string;
-    type: ColumnType;
-    columnName: string;
-    isNullable: boolean;
-    isUnique: boolean;
-  },
->(
-  columns: T[]
-): T[] => {
-  return columns.map((col) => {
-    if (col.defaultValue !== undefined) {
-      const isFunction = col.defaultValue.includes('(');
-      const isAlreadyQuoted = col.defaultValue.startsWith("'") && col.defaultValue.endsWith("'");
-
-      // Handle different column types
-      switch (col.type) {
-        case ColumnType.STRING:
-          // Add quotes for string values that aren't functions or already quoted
-          if (!isFunction && !isAlreadyQuoted) {
-            col.defaultValue = `'${col.defaultValue}'`;
-          }
-          break;
-
-        case ColumnType.DATETIME:
-          // For datetime, use functions like now() or CURRENT_TIMESTAMP
-          // If it's not a function and not CURRENT_TIMESTAMP, it's likely an error
-          if (!isFunction && col.defaultValue !== 'CURRENT_TIMESTAMP') {
-            console.warn(
-              `Warning: datetime default '${col.defaultValue}' may not work. Use 'now()' or 'CURRENT_TIMESTAMP'`
-            );
-          }
-          break;
-
-        case ColumnType.JSON:
-          // JSON defaults need to be wrapped in single quotes
-          if (!isAlreadyQuoted) {
-            col.defaultValue = `'${col.defaultValue}'`;
-          }
-          break;
-
-        // uuid, integer, float, boolean can be used as-is
-      }
-    }
-    return col;
-  });
-};
-
 // --------------------------------------------------
 // Instruction Tools
 
@@ -227,262 +174,10 @@ server.tool(
   }
 );
 
-/*
-// Download project-specific rules (CLAUDE.md and cursor rules)
-server.tool(
-  'download-project-rules',
-  'Download project-specific rules (CLAUDE.md and cursor rules) <critical>MANDATORY: You MUST use this tool when starting a new project</critical>',
-  {},
-  withUsageTracking('download-project-rules', async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/docs/project`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      const result = await handleApiResponse(response);
-
-      // Traditional REST format - data returned directly as { type, content }
-      if (result && typeof result === 'object' && 'content' in result) {
-        const outputs = [];
-
-        // Save as CLAUDE.md
-        const claudeMdPath = path.join(process.cwd(), 'CLAUDE.md');
-        await fs.writeFile(claudeMdPath, result.content, 'utf-8');
-        outputs.push(`✓ Saved CLAUDE.md to: ${claudeMdPath}`);
-
-        // Also save as cursor rules (same content works for both)
-        const cursorRulesDir = path.join(process.cwd(), '.cursor', 'rules');
-        const cursorRulesPath = path.join(cursorRulesDir, 'cursor-rules.mdc');
-
-        // Create directory if it doesn't exist
-        await fs.mkdir(cursorRulesDir, { recursive: true });
-        await fs.writeFile(cursorRulesPath, result.content, 'utf-8');
-        outputs.push(`✓ Saved cursor rules to: ${cursorRulesPath}`);
-
-        return await addBackgroundContext({
-          content: [
-            {
-              type: 'text',
-              text: outputs.join('\n'),
-            },
-          ],
-        });
-      }
-
-      throw new Error('Invalid response format from project rules endpoint');
-    } catch (error) {
-      const errMsg = error instanceof Error ? error.message : 'Unknown error occurred';
-      return await addBackgroundContext({
-        content: [
-          {
-            type: 'text',
-            text: `Error downloading project rules: ${errMsg}`,
-          },
-        ],
-        isError: true,
-      });
-    }
-  })
-);
-*/
-
-// --------------------------------------------------
-// Core Database Tools
-/*
-server.tool(
-  'create-table',
-  'Create a new table with explicit schema definition',
-  {
-    ...createTableRequestSchema.shape,
-    apiKey: z
-      .string()
-      .optional()
-      .describe('API key for authentication (optional if provided via --api_key)'),
-  },
-  withUsageTracking('create-table', async ({ apiKey, tableName, columns, rlsEnabled }) => {
-    try {
-      const actualApiKey = getApiKey(apiKey);
-
-      // Preprocess columns to format default values based on type
-      const processedColumns = preprocessColumnDefaults(columns);
-
-      const requestBody: CreateTableRequest = {
-        tableName,
-        columns: processedColumns,
-        rlsEnabled: rlsEnabled ?? true,
-      };
-
-      const response = await fetch(`${API_BASE_URL}/api/database/tables`, {
-        method: 'POST',
-        headers: {
-          'x-api-key': actualApiKey,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      const result = await handleApiResponse(response);
-
-      return await addBackgroundContext({
-        content: [
-          {
-            type: 'text',
-            text: formatSuccessMessage('Table created', result),
-          },
-        ],
-      });
-    } catch (error) {
-      const errMsg = error instanceof Error ? error.message : 'Unknown error occurred';
-      return await addBackgroundContext({
-        content: [
-          {
-            type: 'text',
-            text: `Error creating table: ${errMsg}`,
-          },
-        ],
-        isError: true,
-      });
-    }
-  })
-);
-
-server.tool(
-  'delete-table',
-  'Permanently deletes a table and all its data',
-  {
-    apiKey: z
-      .string()
-      .optional()
-      .describe('API key for authentication (optional if provided via --api_key)'),
-    tableName: z.string().describe('Name of the table to delete'),
-  },
-  withUsageTracking('delete-table', async ({ apiKey, tableName }) => {
-    try {
-      const actualApiKey = getApiKey(apiKey);
-      const response = await fetch(`${API_BASE_URL}/api/database/tables/${tableName}`, {
-        method: 'DELETE',
-        headers: {
-          'x-api-key': actualApiKey,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      const result = await handleApiResponse(response);
-
-      return await addBackgroundContext({
-        content: [
-          {
-            type: 'text',
-            text: formatSuccessMessage('Table deleted', result),
-          },
-        ],
-      });
-    } catch (error) {
-      const errMsg = error instanceof Error ? error.message : 'Unknown error occurred';
-      return await addBackgroundContext({
-        content: [
-          {
-            type: 'text',
-            text: `Error deleting table: ${errMsg}`,
-          },
-        ],
-        isError: true,
-      });
-    }
-  })
-);
-
-server.tool(
-  'modify-table',
-  'Alters table schema - add, drop, or rename columns',
-  {
-    apiKey: z
-      .string()
-      .optional()
-      .describe('API key for authentication (optional if provided via --api_key)'),
-    tableName: z.string().describe('Name of the table to modify'),
-    ...updateTableSchemaRequestSchema.shape,
-  },
-  withUsageTracking(
-    'modify-table',
-    async ({
-      apiKey,
-      tableName,
-      addColumns,
-      dropColumns,
-      updateColumns,
-      addForeignKeys,
-      dropForeignKeys,
-      renameTable,
-    }) => {
-      try {
-        const actualApiKey = getApiKey(apiKey);
-        const requestBody: UpdateTableSchemaRequest = {};
-
-        // Preprocess addColumns to format default values
-        if (addColumns) {
-          requestBody.addColumns = preprocessColumnDefaults(addColumns);
-        }
-
-        if (dropColumns) {
-          requestBody.dropColumns = dropColumns;
-        }
-        if (updateColumns) {
-          requestBody.updateColumns = updateColumns;
-        }
-        if (addForeignKeys) {
-          requestBody.addForeignKeys = addForeignKeys;
-        }
-        if (dropForeignKeys) {
-          requestBody.dropForeignKeys = dropForeignKeys;
-        }
-        if (renameTable) {
-          requestBody.renameTable = renameTable;
-        }
-
-        const response = await fetch(`${API_BASE_URL}/api/database/tables/${tableName}/schema`, {
-          method: 'PATCH',
-          headers: {
-            'x-api-key': actualApiKey,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
-        });
-
-        const result = await handleApiResponse(response);
-
-        return await addBackgroundContext({
-          content: [
-            {
-              type: 'text',
-              text: formatSuccessMessage('Table modified', result),
-            },
-          ],
-        });
-      } catch (error) {
-        const errMsg = error instanceof Error ? error.message : 'Unknown error occurred';
-        return await addBackgroundContext({
-          content: [
-            {
-              type: 'text',
-              text: `Error modifying table: ${errMsg}`,
-            },
-          ],
-          isError: true,
-        });
-      }
-    }
-  )
-);
-*/
-
 // Get table schema
 server.tool(
   'get-table-schema',
-  'Returns the schema of a specific table',
+  'Returns the detailed schema(including RLS, indexes, constraints, etc.) of a specific table',
   {
     apiKey: z
       .string()
@@ -838,23 +533,12 @@ server.tool(
   'create-function',
   'Create a new edge function that runs in Deno runtime. The code must be written to a file first for version control',
   {
-    slug: z
-      .string()
-      .regex(/^[a-zA-Z0-9_-]+$/, 'Slug must be alphanumeric with hyphens or underscores only')
-      .describe(
-        'URL-friendly identifier (alphanumeric, hyphens, underscores only). Example: "my-calculator"'
-      ),
-    name: z.string().describe('Function display name. Example: "Calculator Function"'),
+    ...functionUploadRequestSchema.omit({ code: true }).shape,
     codeFile: z
       .string()
       .describe(
         'Path to JavaScript file containing the function code. Must export: module.exports = async function(request) { return new Response(...) }'
       ),
-    description: z.string().optional().describe('Description of what the function does'),
-    active: z
-      .boolean()
-      .optional()
-      .describe('Set to true to deploy immediately, false for draft mode'),
   },
   withUsageTracking('create-function', async (args) => {
     try {
@@ -878,8 +562,8 @@ server.tool(
           slug: args.slug,
           name: args.name,
           code: code,
-          description: args.description || '',
-          status: args.active ? 'active' : 'draft',
+          description: args.description,
+          status: args.status,
         }),
       });
 
@@ -958,22 +642,17 @@ server.tool(
   'Update an existing edge function code or metadata',
   {
     slug: z.string().describe('The slug identifier of the function to update'),
-    name: z.string().optional().describe('New display name'),
+    ...functionUpdateRequestSchema.omit({ code: true }).shape,
     codeFile: z
       .string()
       .optional()
       .describe(
         'Path to JavaScript file containing the new function code. Must export: module.exports = async function(request) { return new Response(...) }'
       ),
-    description: z.string().optional().describe('New description'),
-    status: z
-      .string()
-      .optional()
-      .describe('Function status: "draft" (not deployed), "active" (deployed), or "error"'),
   },
   withUsageTracking('update-function', async (args) => {
     try {
-      const updateData: any = {};
+      const updateData: FunctionUpdateRequest = {};
       if (args.name) {
         updateData.name = args.name;
       }
