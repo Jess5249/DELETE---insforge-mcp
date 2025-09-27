@@ -1,13 +1,5 @@
 // Helper functions to handle traditional REST response format
 
-// Use the Fetch API Response type that's available in Node.js 18+
-interface FetchResponse {
-  ok: boolean;
-  status: number;
-  statusText: string;
-  json(): Promise<unknown>;
-}
-
 interface ErrorResponse {
   error: string;
   message: string;
@@ -15,7 +7,7 @@ interface ErrorResponse {
   nextAction?: string;
 }
 
-export async function handleApiResponse(response: FetchResponse): Promise<unknown> {
+export async function handleApiResponse(response: any): Promise<any> {
   const responseData = await response.json();
 
   // Handle traditional REST format
@@ -36,11 +28,10 @@ export async function handleApiResponse(response: FetchResponse): Promise<unknow
   return responseData;
 }
 
-export function formatSuccessMessage(operation: string, data: unknown): string {
+export function formatSuccessMessage(operation: string, data: any): string {
   // If data contains a message, use it
-  if (data && typeof data === 'object' && data !== null && 'message' in data) {
-    const dataWithMessage = data as { message: string };
-    return `${dataWithMessage.message}\n${JSON.stringify(data, null, 2)}`;
+  if (data && typeof data === 'object' && 'message' in data) {
+    return `${data.message}\n${JSON.stringify(data, null, 2)}`;
   }
 
   // Otherwise, create a generic success message
