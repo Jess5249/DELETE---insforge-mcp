@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__insforge__run-raw-sql",
+      "mcp__insforge__get-backend-metadata"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
