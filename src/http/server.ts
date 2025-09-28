@@ -16,6 +16,8 @@ const PORT = parseInt(port) || 3000;
 
 // Track active transports by session ID
 const transports = new Map<string, StreamableHTTPServerTransport>();
+// Track McpServer instances for proper cleanup
+const servers = new Map<string, McpServer>();
 
 // Create Express app
 const app = express();
@@ -28,7 +30,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Mcp-Session-Id, Last-Event-ID');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Base-URL, Mcp-Session-Id, Last-Event-ID');
   res.setHeader('Access-Control-Expose-Headers', 'Mcp-Session-Id');
   
   if (req.method === 'OPTIONS') {
@@ -85,6 +87,7 @@ app.post('/mcp', async (req: Request, res: Response) => {
   const apiBaseUrl = req.headers['x-base-url'] as string;
   
   let transport: StreamableHTTPServerTransport;
+  let mcpServer: McpServer | undefined;
   
   // Check if we have an existing session
   if (sessionId && transports.has(sessionId)) {
@@ -103,26 +106,34 @@ app.post('/mcp', async (req: Request, res: Response) => {
       });
     }
     
-    // Create new transport
+    // Create new transport with session initialization callback
     transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
+      onsessioninitialized: (sessionId) => {
+        // Store the transport and server by session ID
+        console.log(`Session initialized: ${sessionId}`);
+        transports.set(sessionId, transport);
+        if (mcpServer) {
+          servers.set(sessionId, mcpServer);
+        }
+      },
     });
     
     // Create and connect MCP server
-    const server = new McpServer({
+    mcpServer = new McpServer({
       name: 'insforge-mcp',
       version: '1.0.0',
     });
     
     // Register tools with user's API key and base URL
-    registerInsforgeTools(server, {
+    registerInsforgeTools(mcpServer, {
       apiKey,
       apiBaseUrl,
     });
     
     // Connect server to transport BEFORE handling request
     console.log('Connecting server to transport...');
-    await server.connect(transport);
+    await mcpServer.connect(transport);
     console.log('Server connected successfully');
   } else {
     // No session and not an init request
@@ -136,11 +147,8 @@ app.post('/mcp', async (req: Request, res: Response) => {
   await transport.handleRequest(req, res, req.body);
   console.log('Request handled');
   
-  // Store transport after handling init request (when sessionId is available)
-  if (isInitializeRequest(req.body) && transport.sessionId) {
-    console.log(`Storing transport for session: ${transport.sessionId}`);
-    transports.set(transport.sessionId, transport);
-  }
+  // The onsessioninitialized callback handles storing the transport and server
+  // No need to manually store them here anymore
 });
 
 // Handle GET requests to /mcp (for SSE)
@@ -170,8 +178,17 @@ app.delete('/mcp', async (req: Request, res: Response) => {
   }
   
   const transport = transports.get(sessionId)!;
+  const server = servers.get(sessionId);
+  
   await transport.handleRequest(req, res, req.body);
+  
+  // Clean up server and transport
+  if (server) {
+    await server.close();
+    servers.delete(sessionId);
+  }
   transports.delete(sessionId);
+  console.log(`Session ${sessionId} closed`);
 });
 
 // Start server
@@ -212,15 +229,20 @@ const server = app.listen(PORT, '127.0.0.1', () => {
 process.on('SIGINT', async () => {
   console.log('\n🛑 Shutting down server...');
   
-  // Close all transports
-  for (const [sessionId, transport] of transports.entries()) {
+  // Close all servers and transports
+  for (const [sessionId, server] of servers.entries()) {
     try {
       console.log(`Closing session: ${sessionId}`);
-      await transport.close();
+      await server.close();
+      const transport = transports.get(sessionId);
+      if (transport) {
+        await transport.close();
+      }
     } catch (error) {
       console.error(`Error closing session ${sessionId}:`, error);
     }
   }
+  servers.clear();
   transports.clear();
   
   // Close HTTP server
