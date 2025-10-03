@@ -750,7 +750,7 @@ export function registerInsforgeTools(server: McpServer, config: ToolsConfig = {
 
   server.tool(
     'get-container-logs',
-    'Get latest logs from a specific container/service. Available sources: insforge.logs (backend), postgREST.logs (API), postgres.logs (database), function.logs (edge functions)',
+    'Get latest logs from a specific container/service. Use this to help debug problems with your app.',
     {
       apiKey: z
         .string()
