@@ -750,14 +750,14 @@ export function registerInsforgeTools(server: McpServer, config: ToolsConfig = {
 
   server.tool(
     'get-container-logs',
-    'Get latest 100 logs from a specific container/service. Available sources: insforge.logs (backend), postgREST.logs (API), postgres.logs (database), function.logs (edge functions)',
+    'Get latest logs from a specific container/service. Available sources: insforge.logs (backend), postgREST.logs (API), postgres.logs (database), function.logs (edge functions)',
     {
       apiKey: z
         .string()
         .optional()
         .describe('API key for authentication (optional if provided via --api_key)'),
       source: z.enum(['insforge.logs', 'postgREST.logs', 'postgres.logs', 'function.logs']).describe('Log source to retrieve'),
-      limit: z.number().optional().default(100).describe('Number of logs to return (default: 100)'),
+      limit: z.number().optional().default(20).describe('Number of logs to return (default: 20)'),
     },
     withUsageTracking('get-container-logs', async ({ apiKey, source, limit }) => {
       try {
