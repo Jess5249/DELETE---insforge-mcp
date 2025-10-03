@@ -744,10 +744,64 @@ export function registerInsforgeTools(server: McpServer, config: ToolsConfig = {
     })
   );
 
+  // --------------------------------------------------
+  // CONTAINER LOGS TOOLS
+  // --------------------------------------------------
+
+  server.tool(
+    'get-container-logs',
+    'Get latest 100 logs from a specific container/service. Available sources: insforge.logs (backend), postgREST.logs (API), postgres.logs (database), function.logs (edge functions)',
+    {
+      apiKey: z
+        .string()
+        .optional()
+        .describe('API key for authentication (optional if provided via --api_key)'),
+      source: z.enum(['insforge.logs', 'postgREST.logs', 'postgres.logs', 'function.logs']).describe('Log source to retrieve'),
+      limit: z.number().optional().default(100).describe('Number of logs to return (default: 100)'),
+    },
+    withUsageTracking('get-container-logs', async ({ apiKey, source, limit }) => {
+      try {
+        const actualApiKey = getApiKey(apiKey);
+
+        const queryParams = new URLSearchParams();
+        if (limit) queryParams.append('limit', limit.toString());
+
+        const response = await fetch(`${API_BASE_URL}/api/logs/analytics/${source}?${queryParams}`, {
+          method: 'GET',
+          headers: {
+            'x-api-key': actualApiKey,
+          },
+        });
+
+        const result = await handleApiResponse(response);
+
+        return await addBackgroundContext({
+          content: [
+            {
+              type: 'text',
+              text: formatSuccessMessage(`Latest logs from ${source}`, result),
+            },
+          ],
+        });
+      } catch (error) {
+        const errMsg = error instanceof Error ? error.message : 'Unknown error occurred';
+        return await addBackgroundContext({
+          content: [
+            {
+              type: 'text',
+              text: `Error retrieving container logs: ${errMsg}`,
+            },
+          ],
+          isError: true,
+        });
+      }
+    })
+  );
+
   // Return the configured values for reference
   return {
     apiKey: GLOBAL_API_KEY,
     apiBaseUrl: API_BASE_URL,
-    toolCount: 13, // Total number of tools registered
+    toolCount: 14,
   };
 }
