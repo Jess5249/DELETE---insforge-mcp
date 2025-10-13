@@ -4,6 +4,12 @@
   </a>
 </div>
 
+<div align="center">
+
+[![MCP Badge](https://lobehub.com/badge/mcp/insforge-insforge-mcp)](https://lobehub.com/mcp/insforge-insforge-mcp)
+
+</div>
+
 # Insforge MCP Server
 
 Model Context Protocol server for [Insforge](https://github.com/InsForge/insforge).
