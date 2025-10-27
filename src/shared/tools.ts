@@ -1195,6 +1195,6 @@ export function registerInsforgeTools(server: McpServer, config: ToolsConfig = {
   return {
     apiKey: GLOBAL_API_KEY,
     apiBaseUrl: API_BASE_URL,
-    toolCount: 18,
+    toolCount: 16,
   };
 }
