@@ -48,8 +48,8 @@ interface VersionCacheEntry {
  */
 const TOOL_VERSION_REQUIREMENTS: Record<string, string> = {
   'upsert-schedule': '1.1.1',
-  'get-schedules': '1.1.1',
-  'get-schedule-logs': '1.1.1',
+  // 'get-schedules': '1.1.1',
+  // 'get-schedule-logs': '1.1.1',
   'delete-schedule': '1.1.1',
 };
 
@@ -1023,124 +1023,124 @@ export function registerInsforgeTools(server: McpServer, config: ToolsConfig = {
     })
   );
 
-  server.tool(
-    'get-schedules',
-    'List all cron job schedules',
-    {
-      apiKey: z
-        .string()
-        .optional()
-        .describe('API key for authentication (optional if provided via --api_key)'),
-      scheduleId: z
-        .string()
-        .uuid()
-        .optional()
-        .describe('Optional: Get a specific schedule by ID. If omitted, returns all schedules.'),
-    },
-    withUsageTracking('get-schedules', async ({ apiKey, scheduleId }) => {
-      try {
-        // Check backend version compatibility
-        await checkToolVersion('get-schedules');
+  // server.tool(
+  //   'get-schedules',
+  //   'List all cron job schedules',
+  //   {
+  //     apiKey: z
+  //       .string()
+  //       .optional()
+  //       .describe('API key for authentication (optional if provided via --api_key)'),
+  //     scheduleId: z
+  //       .string()
+  //       .uuid()
+  //       .optional()
+  //       .describe('Optional: Get a specific schedule by ID. If omitted, returns all schedules.'),
+  //   },
+  //   withUsageTracking('get-schedules', async ({ apiKey, scheduleId }) => {
+  //     try {
+  //       // Check backend version compatibility
+  //       await checkToolVersion('get-schedules');
 
-        const actualApiKey = getApiKey(apiKey);
+  //       const actualApiKey = getApiKey(apiKey);
 
-        const url = scheduleId
-          ? `${API_BASE_URL}/api/schedules/${scheduleId}`
-          : `${API_BASE_URL}/api/schedules`;
+  //       const url = scheduleId
+  //         ? `${API_BASE_URL}/api/schedules/${scheduleId}`
+  //         : `${API_BASE_URL}/api/schedules`;
 
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: {
-            'x-api-key': actualApiKey,
-          },
-        });
+  //       const response = await fetch(url, {
+  //         method: 'GET',
+  //         headers: {
+  //           'x-api-key': actualApiKey,
+  //         },
+  //       });
 
-        const result = await handleApiResponse(response);
+  //       const result = await handleApiResponse(response);
 
-        const message = scheduleId
-          ? `Schedule details for ID: ${scheduleId}`
-          : 'All schedules';
+  //       const message = scheduleId
+  //         ? `Schedule details for ID: ${scheduleId}`
+  //         : 'All schedules';
 
-        return await addBackgroundContext({
-          content: [
-            {
-              type: 'text',
-              text: formatSuccessMessage(message, result),
-            },
-          ],
-        });
-      } catch (error) {
-        const errMsg = error instanceof Error ? error.message : 'Unknown error occurred';
-        return await addBackgroundContext({
-          content: [
-            {
-              type: 'text',
-              text: `Error retrieving schedules: ${errMsg}`,
-            },
-          ],
-          isError: true,
-        });
-      }
-    })
-  );
+  //       return await addBackgroundContext({
+  //         content: [
+  //           {
+  //             type: 'text',
+  //             text: formatSuccessMessage(message, result),
+  //           },
+  //         ],
+  //       });
+  //     } catch (error) {
+  //       const errMsg = error instanceof Error ? error.message : 'Unknown error occurred';
+  //       return await addBackgroundContext({
+  //         content: [
+  //           {
+  //             type: 'text',
+  //             text: `Error retrieving schedules: ${errMsg}`,
+  //           },
+  //         ],
+  //         isError: true,
+  //       });
+  //     }
+  //   })
+  // );
 
-  server.tool(
-    'get-schedule-logs',
-    'Get execution logs for a specific schedule with pagination',
-    {
-      apiKey: z
-        .string()
-        .optional()
-        .describe('API key for authentication (optional if provided via --api_key)'),
-      scheduleId: z.string().uuid().describe('The UUID of the schedule to get logs for'),
-      limit: z.number().int().positive().optional().default(50).describe('Number of logs to return (default: 50)'),
-      offset: z.number().int().nonnegative().optional().default(0).describe('Number of logs to skip (default: 0)'),
-    },
-    withUsageTracking('get-schedule-logs', async ({ apiKey, scheduleId, limit, offset }) => {
-      try {
-        // Check backend version compatibility
-        await checkToolVersion('get-schedule-logs');
+  // server.tool(
+  //   'get-schedule-logs',
+  //   'Get execution logs for a specific schedule with pagination',
+  //   {
+  //     apiKey: z
+  //       .string()
+  //       .optional()
+  //       .describe('API key for authentication (optional if provided via --api_key)'),
+  //     scheduleId: z.string().uuid().describe('The UUID of the schedule to get logs for'),
+  //     limit: z.number().int().positive().optional().default(50).describe('Number of logs to return (default: 50)'),
+  //     offset: z.number().int().nonnegative().optional().default(0).describe('Number of logs to skip (default: 0)'),
+  //   },
+  //   withUsageTracking('get-schedule-logs', async ({ apiKey, scheduleId, limit, offset }) => {
+  //     try {
+  //       // Check backend version compatibility
+  //       await checkToolVersion('get-schedule-logs');
 
-        const actualApiKey = getApiKey(apiKey);
+  //       const actualApiKey = getApiKey(apiKey);
 
-        const queryParams = new URLSearchParams();
-        if (limit) queryParams.append('limit', limit.toString());
-        if (offset) queryParams.append('offset', offset.toString());
+  //       const queryParams = new URLSearchParams();
+  //       if (limit) queryParams.append('limit', limit.toString());
+  //       if (offset) queryParams.append('offset', offset.toString());
 
-        const response = await fetch(
-          `${API_BASE_URL}/api/schedules/${scheduleId}/logs?${queryParams}`,
-          {
-            method: 'GET',
-            headers: {
-              'x-api-key': actualApiKey,
-            },
-          }
-        );
+  //       const response = await fetch(
+  //         `${API_BASE_URL}/api/schedules/${scheduleId}/logs?${queryParams}`,
+  //         {
+  //           method: 'GET',
+  //           headers: {
+  //             'x-api-key': actualApiKey,
+  //           },
+  //         }
+  //       );
 
-        const result = await handleApiResponse(response);
+  //       const result = await handleApiResponse(response);
 
-        return await addBackgroundContext({
-          content: [
-            {
-              type: 'text',
-              text: formatSuccessMessage(`Execution logs for schedule ${scheduleId}`, result),
-            },
-          ],
-        });
-      } catch (error) {
-        const errMsg = error instanceof Error ? error.message : 'Unknown error occurred';
-        return await addBackgroundContext({
-          content: [
-            {
-              type: 'text',
-              text: `Error retrieving schedule logs: ${errMsg}`,
-            },
-          ],
-          isError: true,
-        });
-      }
-    })
-  );
+  //       return await addBackgroundContext({
+  //         content: [
+  //           {
+  //             type: 'text',
+  //             text: formatSuccessMessage(`Execution logs for schedule ${scheduleId}`, result),
+  //           },
+  //         ],
+  //       });
+  //     } catch (error) {
+  //       const errMsg = error instanceof Error ? error.message : 'Unknown error occurred';
+  //       return await addBackgroundContext({
+  //         content: [
+  //           {
+  //             type: 'text',
+  //             text: `Error retrieving schedule logs: ${errMsg}`,
+  //           },
+  //         ],
+  //         isError: true,
+  //       });
+  //     }
+  //   })
+  // );
 
   server.tool(
     'delete-schedule',
