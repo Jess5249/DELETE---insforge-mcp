@@ -25,6 +25,35 @@ export interface ToolsConfig {
 }
 
 /**
+ * Health check response from backend
+ */
+interface HealthCheckResponse {
+  status: string;
+  version: string;
+  service: string;
+  timestamp: string;
+}
+
+/**
+ * Version cache entry
+ */
+interface VersionCacheEntry {
+  version: string;
+  timestamp: number;
+}
+
+/**
+ * Tool version requirements map
+ * Maps tool names to their minimum required backend version
+ */
+const TOOL_VERSION_REQUIREMENTS: Record<string, string> = {
+  'upsert-schedule': '1.1.1',
+  // 'get-schedules': '1.1.1',
+  // 'get-schedule-logs': '1.1.1',
+  'delete-schedule': '1.1.1',
+};
+
+/**
  * Register all Insforge tools on an MCP server
  * This centralizes all tool definitions to avoid duplication
  */
@@ -34,6 +63,96 @@ export function registerInsforgeTools(server: McpServer, config: ToolsConfig = {
 
   // Initialize usage tracker
   const usageTracker = new UsageTracker(API_BASE_URL, GLOBAL_API_KEY);
+
+  // Version cache with 5-minute TTL
+  let versionCache: VersionCacheEntry | null = null;
+  const VERSION_CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+  /**
+   * Fetch backend version from health endpoint with caching
+   */
+  async function getBackendVersion(): Promise<string> {
+    const now = Date.now();
+
+    // Return cached version if still valid
+    if (versionCache && (now - versionCache.timestamp) < VERSION_CACHE_TTL) {
+      return versionCache.version;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/health`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Health check failed with status ${response.status}`);
+      }
+
+      const health: HealthCheckResponse = await response.json();
+
+      // Cache the version
+      versionCache = {
+        version: health.version,
+        timestamp: now,
+      };
+
+      return health.version;
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Failed to fetch backend version: ${errMsg}`);
+    }
+  }
+
+  /**
+   * Compare semantic versions (e.g., "1.1.0" vs "1.0.0")
+   * Returns: -1 if v1 < v2, 0 if v1 === v2, 1 if v1 > v2
+   */
+  function compareVersions(v1: string, v2: string): number {
+    const parts1 = v1.split('.').map(Number);
+    const parts2 = v2.split('.').map(Number);
+
+    for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+      const part1 = parts1[i] || 0;
+      const part2 = parts2[i] || 0;
+
+      if (part1 > part2) return 1;
+      if (part1 < part2) return -1;
+    }
+
+    return 0;
+  }
+
+  /**
+   * Check if tool is supported by current backend version
+   * @throws Error if version requirement is not met
+   */
+  async function checkToolVersion(toolName: string): Promise<void> {
+    const requiredVersion = TOOL_VERSION_REQUIREMENTS[toolName];
+
+    // If no version requirement, tool is available in all versions
+    if (!requiredVersion) {
+      return;
+    }
+
+    try {
+      const currentVersion = await getBackendVersion();
+
+      if (compareVersions(currentVersion, requiredVersion) < 0) {
+        throw new Error(
+          `Tool '${toolName}' requires backend version ${requiredVersion} or higher, but current version is ${currentVersion}. Please upgrade your Insforge backend server.`
+        );
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('requires backend version')) {
+        throw error; // Re-throw version mismatch errors
+      }
+      // If health check fails, log warning but allow tool to proceed
+      console.warn(`Warning: Could not verify backend version for tool '${toolName}': ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
 
   // Helper function to track tool usage
   async function trackToolUsage(toolName: string, success: boolean = true): Promise<void> {
@@ -856,10 +975,273 @@ export function registerInsforgeTools(server: McpServer, config: ToolsConfig = {
     })
   );
 
+  // --------------------------------------------------
+  // SCHEDULE TOOLS (CRON JOBS)
+  // --------------------------------------------------
+
+  server.tool(
+    'upsert-schedule',
+    'Create or update a cron job schedule. If id is provided, updates existing schedule; otherwise creates a new one.',
+    {
+      apiKey: z
+        .string()
+        .optional()
+        .describe('API key for authentication (optional if provided via --api_key)'),
+      id: z
+        .string()
+        .uuid()
+        .optional()
+        .describe('The UUID of the schedule to update. If omitted, a new schedule will be created.'),
+      name: z.string().min(3).describe('Schedule name (at least 3 characters)'),
+      cronSchedule: z
+        .string()
+        .describe('Cron schedule format (5 or 6 parts, e.g., "0 */2 * * *" for every 2 hours)'),
+      functionUrl: z.string().url().describe('The URL to call when the schedule triggers'),
+      httpMethod: z
+        .enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])
+        .optional()
+        .default('POST')
+        .describe('HTTP method to use'),
+      headers: z
+        .record(z.string())
+        .optional()
+        .describe('HTTP headers. Values starting with "secret:" will be resolved from secrets store.'),
+      body: z
+        .record(z.unknown())
+        .optional()
+        .describe('JSON body to send with the request'),
+    },
+    withUsageTracking('upsert-schedule', async ({ apiKey, id, name, cronSchedule, functionUrl, httpMethod, headers, body }) => {
+      try {
+        // Check backend version compatibility
+        await checkToolVersion('upsert-schedule');
+
+        const actualApiKey = getApiKey(apiKey);
+
+        const requestBody: any = {
+          name,
+          cronSchedule,
+          functionUrl,
+          httpMethod: httpMethod || 'POST',
+        };
+
+        if (id) {
+          requestBody.id = id;
+        }
+        if (headers) {
+          requestBody.headers = headers;
+        }
+        if (body) {
+          requestBody.body = body;
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/schedules`, {
+          method: 'POST',
+          headers: {
+            'x-api-key': actualApiKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
+
+        const result = await handleApiResponse(response);
+
+        const action = id ? 'updated' : 'created';
+        return await addBackgroundContext({
+          content: [
+            {
+              type: 'text',
+              text: formatSuccessMessage(`Schedule '${name}' ${action} successfully`, result),
+            },
+          ],
+        });
+      } catch (error) {
+        const errMsg = error instanceof Error ? error.message : 'Unknown error occurred';
+        return await addBackgroundContext({
+          content: [
+            {
+              type: 'text',
+              text: `Error upserting schedule: ${errMsg}`,
+            },
+          ],
+          isError: true,
+        });
+      }
+    })
+  );
+
+  // server.tool(
+  //   'get-schedules',
+  //   'List all cron job schedules',
+  //   {
+  //     apiKey: z
+  //       .string()
+  //       .optional()
+  //       .describe('API key for authentication (optional if provided via --api_key)'),
+  //     scheduleId: z
+  //       .string()
+  //       .uuid()
+  //       .optional()
+  //       .describe('Optional: Get a specific schedule by ID. If omitted, returns all schedules.'),
+  //   },
+  //   withUsageTracking('get-schedules', async ({ apiKey, scheduleId }) => {
+  //     try {
+  //       // Check backend version compatibility
+  //       await checkToolVersion('get-schedules');
+
+  //       const actualApiKey = getApiKey(apiKey);
+
+  //       const url = scheduleId
+  //         ? `${API_BASE_URL}/api/schedules/${scheduleId}`
+  //         : `${API_BASE_URL}/api/schedules`;
+
+  //       const response = await fetch(url, {
+  //         method: 'GET',
+  //         headers: {
+  //           'x-api-key': actualApiKey,
+  //         },
+  //       });
+
+  //       const result = await handleApiResponse(response);
+
+  //       const message = scheduleId
+  //         ? `Schedule details for ID: ${scheduleId}`
+  //         : 'All schedules';
+
+  //       return await addBackgroundContext({
+  //         content: [
+  //           {
+  //             type: 'text',
+  //             text: formatSuccessMessage(message, result),
+  //           },
+  //         ],
+  //       });
+  //     } catch (error) {
+  //       const errMsg = error instanceof Error ? error.message : 'Unknown error occurred';
+  //       return await addBackgroundContext({
+  //         content: [
+  //           {
+  //             type: 'text',
+  //             text: `Error retrieving schedules: ${errMsg}`,
+  //           },
+  //         ],
+  //         isError: true,
+  //       });
+  //     }
+  //   })
+  // );
+
+  // server.tool(
+  //   'get-schedule-logs',
+  //   'Get execution logs for a specific schedule with pagination',
+  //   {
+  //     apiKey: z
+  //       .string()
+  //       .optional()
+  //       .describe('API key for authentication (optional if provided via --api_key)'),
+  //     scheduleId: z.string().uuid().describe('The UUID of the schedule to get logs for'),
+  //     limit: z.number().int().positive().optional().default(50).describe('Number of logs to return (default: 50)'),
+  //     offset: z.number().int().nonnegative().optional().default(0).describe('Number of logs to skip (default: 0)'),
+  //   },
+  //   withUsageTracking('get-schedule-logs', async ({ apiKey, scheduleId, limit, offset }) => {
+  //     try {
+  //       // Check backend version compatibility
+  //       await checkToolVersion('get-schedule-logs');
+
+  //       const actualApiKey = getApiKey(apiKey);
+
+  //       const queryParams = new URLSearchParams();
+  //       if (limit) queryParams.append('limit', limit.toString());
+  //       if (offset) queryParams.append('offset', offset.toString());
+
+  //       const response = await fetch(
+  //         `${API_BASE_URL}/api/schedules/${scheduleId}/logs?${queryParams}`,
+  //         {
+  //           method: 'GET',
+  //           headers: {
+  //             'x-api-key': actualApiKey,
+  //           },
+  //         }
+  //       );
+
+  //       const result = await handleApiResponse(response);
+
+  //       return await addBackgroundContext({
+  //         content: [
+  //           {
+  //             type: 'text',
+  //             text: formatSuccessMessage(`Execution logs for schedule ${scheduleId}`, result),
+  //           },
+  //         ],
+  //       });
+  //     } catch (error) {
+  //       const errMsg = error instanceof Error ? error.message : 'Unknown error occurred';
+  //       return await addBackgroundContext({
+  //         content: [
+  //           {
+  //             type: 'text',
+  //             text: `Error retrieving schedule logs: ${errMsg}`,
+  //           },
+  //         ],
+  //         isError: true,
+  //       });
+  //     }
+  //   })
+  // );
+
+  server.tool(
+    'delete-schedule',
+    'Delete a cron job schedule permanently',
+    {
+      apiKey: z
+        .string()
+        .optional()
+        .describe('API key for authentication (optional if provided via --api_key)'),
+      scheduleId: z.string().uuid().describe('The UUID of the schedule to delete'),
+    },
+    withUsageTracking('delete-schedule', async ({ apiKey, scheduleId }) => {
+      try {
+        // Check backend version compatibility
+        await checkToolVersion('delete-schedule');
+
+        const actualApiKey = getApiKey(apiKey);
+
+        const response = await fetch(`${API_BASE_URL}/api/schedules/${scheduleId}`, {
+          method: 'DELETE',
+          headers: {
+            'x-api-key': actualApiKey,
+          },
+        });
+
+        const result = await handleApiResponse(response);
+
+        return await addBackgroundContext({
+          content: [
+            {
+              type: 'text',
+              text: formatSuccessMessage(`Schedule ${scheduleId} deleted successfully`, result),
+            },
+          ],
+        });
+      } catch (error) {
+        const errMsg = error instanceof Error ? error.message : 'Unknown error occurred';
+        return await addBackgroundContext({
+          content: [
+            {
+              type: 'text',
+              text: `Error deleting schedule: ${errMsg}`,
+            },
+          ],
+          isError: true,
+        });
+      }
+    })
+  );
+
   // Return the configured values for reference
   return {
     apiKey: GLOBAL_API_KEY,
     apiBaseUrl: API_BASE_URL,
-    toolCount: 14,
+    toolCount: 16,
   };
 }
