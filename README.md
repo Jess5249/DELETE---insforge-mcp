@@ -14,6 +14,10 @@
 
 Model Context Protocol server for [Insforge](https://github.com/InsForge/insforge).
 
+<a href="https://glama.ai/mcp/servers/@InsForge/insforge-mcp">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@InsForge/insforge-mcp/badge" alt="Insforge Server MCP server" />
+</a>
+
 ## 📖 Documentation
 
 Please visit the [main Insforge repository](https://github.com/InsForge/insforge) for:
