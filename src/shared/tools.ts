@@ -245,9 +245,9 @@ export function registerInsforgeTools(server: McpServer, config: ToolsConfig = {
     'Fetch Insforge documentation. Use "instructions" for essential backend setup (MANDATORY FIRST), or select specific SDK docs for database, auth, storage, functions, or AI integration.',
     {
       docType: z
-        .enum(['instructions', 'db-sdk', 'auth-sdk', 'storage-sdk', 'functions-sdk', 'ai-integration-sdk','auth-components-nextjs', 'auth-components-react', 'auth-components-customization'])
+        .enum(['instructions', 'db-sdk', 'storage-sdk', 'functions-sdk', 'ai-integration-sdk','auth-components-nextjs', 'auth-components-react'])
         .describe(
-          'Documentation type: "instructions" (essential backend setup - use FIRST), "db-sdk" (database operations), "auth-sdk" (authentication), "storage-sdk" (file storage), "functions-sdk" (edge functions), "ai-integration-sdk" (AI features), "auth-components-nextjs" (authentication components for Next.js applications) "auth-components-react" (authentication components for React applications) "auth-components-customization" (authentication components customization)'
+          'Documentation type: "instructions" (essential backend setup - use FIRST), "db-sdk" (database operations), "storage-sdk" (file storage), "functions-sdk" (edge functions), "ai-integration-sdk" (AI features), "auth-components-nextjs" (authentication components for Next.js applications), "auth-components-react" (authentication components for React applications),'
         ),
     },
     withUsageTracking('fetch-docs', async ({ docType }) => {
