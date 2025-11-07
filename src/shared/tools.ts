@@ -202,6 +202,7 @@ export function registerInsforgeTools(server: McpServer, config: ToolsConfig = {
       if (result && typeof result === 'object' && 'content' in result) {
         let content = result.content;
         content = content.replace(/http:\/\/localhost:7130/g, API_BASE_URL);
+        content = content.replace(/https:\/\/your-app\.region\.insforge\.app/g, API_BASE_URL);
         return content;
       }
 
