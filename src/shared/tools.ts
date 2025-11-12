@@ -2,6 +2,8 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import fetch from 'node-fetch';
 import { promises as fs } from 'fs';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import { handleApiResponse, formatSuccessMessage } from './response-handler.js';
 import { UsageTracker } from './usage-tracker.js';
 import {
@@ -15,6 +17,8 @@ import {
   bulkUpsertRequestSchema,
 } from '@insforge/shared-schemas';
 import FormData from 'form-data';
+
+const execAsync = promisify(exec);
 
 /**
  * Configuration for the tools
@@ -249,9 +253,9 @@ export function registerInsforgeTools(server: McpServer, config: ToolsConfig = {
     'Fetch Insforge documentation. Use "instructions" for essential backend setup (MANDATORY FIRST), or select specific SDK docs for database, auth, storage, functions, or AI integration.',
     {
       docType: z
-        .enum(['instructions', 'db-sdk', 'storage-sdk', 'functions-sdk', 'ai-integration-sdk','auth-components-react', 'auth-components-nextjs', 'auth-components-react-router'])
+        .enum(['instructions', 'db-sdk', 'storage-sdk', 'functions-sdk', 'ai-integration-sdk','auth-components-react', 'auth-components-react-router'])
         .describe(
-          'Documentation type: "instructions" (essential backend setup - use FIRST), "db-sdk" (database operations), "storage-sdk" (file storage), "functions-sdk" (edge functions), "ai-integration-sdk" (AI features), "auth-components-react" (authentication components for React+Vite applications), "auth-components-nextjs" (authentication components for Next.js applications), "auth-components-react-router" (authentication components for React + React Router applications),'
+          'Documentation type: "instructions" (essential backend setup - use FIRST), "db-sdk" (database operations), "storage-sdk" (file storage), "functions-sdk" (edge functions), "ai-integration-sdk" (AI features), "auth-components-react" (authentication components for React+Vite applications), "auth-components-react-router" (authentication components for React + React Router applications),'
         ),
     },
     withUsageTracking('fetch-docs', async ({ docType }) => {
@@ -1262,6 +1266,6 @@ export function registerInsforgeTools(server: McpServer, config: ToolsConfig = {
   return {
     apiKey: GLOBAL_API_KEY,
     apiBaseUrl: API_BASE_URL,
-    toolCount: 16,
+    toolCount: 17,
   };
 }
