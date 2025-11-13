@@ -511,8 +511,12 @@ export function registerInsforgeTools(server: McpServer, config: ToolsConfig = {
       frame: z
         .enum(['react'])
         .describe('Framework to use for the template (currently only React is supported)'),
+      projectName: z
+        .string()
+        .optional()
+        .describe('Name for the project directory (optional, defaults to "insforge-react")'),
     },
-    withUsageTracking('download-template', async ({ frame }) => {
+    withUsageTracking('download-template', async ({ frame, projectName }) => {
       try {
         // Get the anon key from backend
         const response = await fetch(`${API_BASE_URL}/api/auth/tokens/anon`, {
@@ -530,15 +534,19 @@ export function registerInsforgeTools(server: McpServer, config: ToolsConfig = {
           throw new Error('Failed to retrieve anon key from backend');
         }
 
-        const targetDir = `insforge-${frame}`;
-        const command = `npx create-insforge-app insforge-${frame}  --frame ${frame} --base-url ${API_BASE_URL} --anon-key ${anonKey}`;
+        const targetDir = projectName || `insforge-${frame}`;
+        const command = `npx create-insforge-app ${targetDir}  --frame ${frame} --base-url ${API_BASE_URL} --anon-key ${anonKey}`;
 
         // Execute the npx command
         const { stdout, stderr } = await execAsync(command, {
           maxBuffer: 10 * 1024 * 1024, // 10MB buffer
         });
 
-        const output = stdout || stderr || 'Template downloaded successfully';
+        // Check if command was successful (basic validation)
+        const output = stdout || stderr || '';
+        if (output.toLowerCase().includes('error') && !output.includes('successfully')) {
+          throw new Error(`Failed to download template: ${output}`);
+        }
 
         return {
           content: [
@@ -549,8 +557,6 @@ export function registerInsforgeTools(server: McpServer, config: ToolsConfig = {
                 {
                   targetDir,
                   baseUrl: API_BASE_URL,
-                  command,
-                  output: output.trim(),
                   nextSteps: [
                     `cd ${targetDir}`,
                     `npm install`,
