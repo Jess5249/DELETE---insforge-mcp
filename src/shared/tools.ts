@@ -506,7 +506,7 @@ export function registerInsforgeTools(server: McpServer, config: ToolsConfig = {
 
   server.tool(
     'download-template',
-    'Download a React starter template with InsForge integration. Creates a new "insforge-react" directory with React + TypeScript setup and pre-configured with your backend URL and anon key.',
+    'CRITICAL: MANDATORY FIRST STEP for all new InsForge projects. Download pre-configured starter template (React/Next.js/React Router). ALWAYS use this tool BEFORE any other setup when starting a new project.',
     {
       frame: z
         .enum(['react'])
