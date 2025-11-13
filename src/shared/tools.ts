@@ -515,8 +515,12 @@ export function registerInsforgeTools(server: McpServer, config: ToolsConfig = {
         .string()
         .optional()
         .describe('Name for the project directory (optional, defaults to "insforge-react")'),
+      workingDirectory: z
+        .string()
+        .optional()
+        .describe('Working directory path where project should be created'),
     },
-    withUsageTracking('download-template', async ({ frame, projectName }) => {
+    withUsageTracking('download-template', async ({ frame, projectName, workingDirectory }) => {
       try {
         // Get the anon key from backend
         const response = await fetch(`${API_BASE_URL}/api/auth/tokens/anon`, {
@@ -535,11 +539,13 @@ export function registerInsforgeTools(server: McpServer, config: ToolsConfig = {
         }
 
         const targetDir = projectName || `insforge-${frame}`;
+        const cwd = workingDirectory || process.cwd();
         const command = `npx create-insforge-app ${targetDir}  --frame ${frame} --base-url ${API_BASE_URL} --anon-key ${anonKey}`;
 
-        // Execute the npx command
+        // Execute the npx command in the specified working directory
         const { stdout, stderr } = await execAsync(command, {
           maxBuffer: 10 * 1024 * 1024, // 10MB buffer
+          cwd: cwd,
         });
 
         // Check if command was successful (basic validation)
@@ -548,14 +554,17 @@ export function registerInsforgeTools(server: McpServer, config: ToolsConfig = {
           throw new Error(`Failed to download template: ${output}`);
         }
 
+        const fullPath = `${cwd}/${targetDir}`;
+
         return {
           content: [
             {
               type: 'text',
               text: formatSuccessMessage(
-                `React template downloaded to ${targetDir}`,
+                `React template created successfully`,
                 {
-                  targetDir,
+                  projectName: targetDir,
+                  location: fullPath,
                   baseUrl: API_BASE_URL,
                   nextSteps: [
                     `cd ${targetDir}`,
