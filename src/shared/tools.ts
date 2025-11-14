@@ -4,6 +4,7 @@ import fetch from 'node-fetch';
 import { promises as fs } from 'fs';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { tmpdir } from 'os';
 import { handleApiResponse, formatSuccessMessage } from './response-handler.js';
 import { UsageTracker } from './usage-tracker.js';
 import {
@@ -506,7 +507,7 @@ export function registerInsforgeTools(server: McpServer, config: ToolsConfig = {
 
   server.tool(
     'download-template',
-    'CRITICAL: MANDATORY FIRST STEP for all new InsForge projects. Download pre-configured starter template (React/Next.js/React Router). ALWAYS use this tool BEFORE any other setup when starting a new project.',
+    'CRITICAL: MANDATORY FIRST STEP for all new InsForge projects. Download pre-configured starter template (React) to a temporary directory. After download, you MUST copy files to current directory using the provided command.',
     {
       frame: z
         .enum(['react'])
@@ -515,12 +516,8 @@ export function registerInsforgeTools(server: McpServer, config: ToolsConfig = {
         .string()
         .optional()
         .describe('Name for the project directory (optional, defaults to "insforge-react")'),
-      workingDirectory: z
-        .string()
-        .optional()
-        .describe('Working directory path where project should be created'),
     },
-    withUsageTracking('download-template', async ({ frame, projectName, workingDirectory }) => {
+    withUsageTracking('download-template', async ({ frame, projectName }) => {
       try {
         // Get the anon key from backend
         const response = await fetch(`${API_BASE_URL}/api/auth/tokens/anon`, {
@@ -538,14 +535,18 @@ export function registerInsforgeTools(server: McpServer, config: ToolsConfig = {
           throw new Error('Failed to retrieve anon key from backend');
         }
 
+        // Create temp directory for download
+        const tempDir = await fs.mkdtemp(`${tmpdir()}/insforge-`);
         const targetDir = projectName || `insforge-${frame}`;
-        const cwd = workingDirectory || process.cwd();
-        const command = `npx create-insforge-app ${targetDir}  --frame ${frame} --base-url ${API_BASE_URL} --anon-key ${anonKey}`;
 
-        // Execute the npx command in the specified working directory
+        console.error(`[download-template] Downloading to temp: ${tempDir}`);
+
+        const command = `npx create-insforge-app ${targetDir} --frame ${frame} --base-url ${API_BASE_URL} --anon-key ${anonKey}`;
+
+        // Execute the npx command in temp directory
         const { stdout, stderr } = await execAsync(command, {
           maxBuffer: 10 * 1024 * 1024, // 10MB buffer
-          cwd: cwd,
+          cwd: tempDir,
         });
 
         // Check if command was successful (basic validation)
@@ -554,20 +555,24 @@ export function registerInsforgeTools(server: McpServer, config: ToolsConfig = {
           throw new Error(`Failed to download template: ${output}`);
         }
 
-        const fullPath = `${cwd}/${targetDir}`;
+        const templatePath = `${tempDir}/${targetDir}`;
 
         return {
           content: [
             {
               type: 'text',
               text: formatSuccessMessage(
-                `React template created successfully`,
+                `React template downloaded to temporary directory`,
                 {
                   projectName: targetDir,
-                  location: fullPath,
+                  tempLocation: templatePath,
                   baseUrl: API_BASE_URL,
-                  nextSteps: [
-                    `cd ${targetDir}`,
+                  criticalNextStep: [
+                    `IMPORTANT: The template is in a temporary directory. Run this command to copy it to your current directory:`,
+                    ``,
+                    `cp -r ${templatePath}/* . && cp -r ${templatePath}/.* . 2>/dev/null || true`,
+                    ``,
+                    `Then proceed with:`,
                     `npm install`,
                     `npm run dev`,
                   ],
