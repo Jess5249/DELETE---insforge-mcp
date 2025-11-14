@@ -254,9 +254,9 @@ export function registerInsforgeTools(server: McpServer, config: ToolsConfig = {
     'Fetch Insforge documentation. Use "instructions" for essential backend setup (MANDATORY FIRST), or select specific SDK docs for database, auth, storage, functions, or AI integration.',
     {
       docType: z
-        .enum(['instructions', 'db-sdk', 'storage-sdk', 'functions-sdk', 'ai-integration-sdk','auth-components-react', 'auth-components-react-router'])
+        .enum(['instructions', 'db-sdk', 'storage-sdk', 'functions-sdk', 'ai-integration-sdk','auth-components-react'])
         .describe(
-          'Documentation type: "instructions" (essential backend setup - use FIRST), "db-sdk" (database operations), "storage-sdk" (file storage), "functions-sdk" (edge functions), "ai-integration-sdk" (AI features), "auth-components-react" (authentication components for React+Vite applications), "auth-components-react-router" (authentication components for React + React Router applications),'
+          'Documentation type: "instructions" (essential backend setup - use FIRST), "db-sdk" (database operations), "storage-sdk" (file storage), "functions-sdk" (edge functions), "ai-integration-sdk" (AI features), "auth-components-react" (authentication components for React+Vite applications,'
         ),
     },
     withUsageTracking('fetch-docs', async ({ docType }) => {
@@ -549,11 +549,11 @@ export function registerInsforgeTools(server: McpServer, config: ToolsConfig = {
             console.error(`[download-template] Removing existing template at ${templatePath}`);
             await fs.rm(templatePath, { recursive: true, force: true });
           }
-        } catch (error) {
+        } catch {
           // Directory doesn't exist, which is fine
         }
 
-        const command = `npx create-insforge-app ${targetDir} --frame ${frame} --base-url ${API_BASE_URL} --anon-key ${anonKey}`;
+        const command = `npx create-insforge-app ${targetDir} --frame ${frame} --base-url ${API_BASE_URL} --anon-key ${anonKey} --skip-install`;
 
         // Execute the npx command in temp directory
         const { stdout, stderr } = await execAsync(command, {
