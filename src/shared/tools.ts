@@ -116,9 +116,9 @@ export function registerInsforgeTools(server: McpServer, config: ToolsConfig = {
    * Returns: -1 if v1 < v2, 0 if v1 === v2, 1 if v1 > v2
    */
   function compareVersions(v1: string, v2: string): number {
-    // Strip 'v' prefix if present
-    const clean1 = v1.replace(/^v/, '');
-    const clean2 = v2.replace(/^v/, '');
+    // Strip 'v' prefix if present and remove pre-release metadata (e.g., "-dev.31")
+    const clean1 = v1.replace(/^v/, '').split('-')[0];
+    const clean2 = v2.replace(/^v/, '').split('-')[0];
 
     const parts1 = clean1.split('.').map(Number);
     const parts2 = clean2.split('.').map(Number);
@@ -276,7 +276,7 @@ export function registerInsforgeTools(server: McpServer, config: ToolsConfig = {
       docType: z
         .enum(['instructions', 'db-sdk', 'storage-sdk', 'functions-sdk', 'ai-integration-sdk','auth-components-react'])
         .describe(
-          'Documentation type: "instructions" (essential backend setup - use FIRST), "db-sdk" (database operations), "storage-sdk" (file storage), "functions-sdk" (edge functions), "ai-integration-sdk" (AI features), "auth-components-react" (authentication components for React+Vite applications,'
+          'Documentation type: "instructions" (essential backend setup - use FIRST), "db-sdk" (database operations), "storage-sdk" (file storage), "functions-sdk" (edge functions), "ai-integration-sdk" (AI features), "auth-components-react" (authentication components for React+Vite applications).'
         ),
     },
     withUsageTracking('fetch-docs', async ({ docType }) => {
@@ -601,7 +601,7 @@ To: Your current project directory
 
   server.tool(
     'bulk-upsert',
-    'Bulk insert or updallet data from CSV or JSON file. Supports upsert operations with a unique key.',
+    'Bulk insert or update data from CSV or JSON file. Supports upsert operations with a unique key.',
     {
       apiKey: z
         .string()
