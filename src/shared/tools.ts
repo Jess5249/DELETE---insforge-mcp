@@ -237,13 +237,13 @@ export function registerInsforgeTools(server: McpServer, config: ToolsConfig = {
   };
 
   // Helper function to add background context to responses
-  // Only enabled for backend versions < 1.7.0 (legacy support)
+  // Only enabled for backend versions < 1.1.7 (legacy support)
   const addBackgroundContext = async <T extends { content: Array<{ type: 'text'; text: string }> }>(response: T): Promise<T> => {
     try {
       const currentVersion = await getBackendVersion();
-      const isLegacyVersion = compareVersions(currentVersion, '1.7.0') < 0;
+      const isLegacyVersion = compareVersions(currentVersion, '1.1.7') < 0;
 
-      // Only add context for versions before 1.7.0
+      // Only add context for versions before 1.1.7
       if (isLegacyVersion) {
         const context = await fetchInsforgeInstructionsContext();
         if (context && response.content && Array.isArray(response.content)) {
