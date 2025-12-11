@@ -16,6 +16,7 @@ import {
   functionUpdateRequestSchema,
   functionUploadRequestSchema,
   bulkUpsertRequestSchema,
+  docTypeSchema,
 } from '@insforge/shared-schemas';
 import FormData from 'form-data';
 
@@ -208,7 +209,7 @@ export function registerInsforgeTools(server: McpServer, config: ToolsConfig = {
 
       // Check for 404 before processing response
       if (response.status === 404) {
-        throw new Error('Documentation not found');
+        throw new Error('Documentation not found. This feature may not be supported in your project version. Please contact the Insforge team for assistance.');
       }
 
       const result = await handleApiResponse(response);
@@ -273,11 +274,7 @@ export function registerInsforgeTools(server: McpServer, config: ToolsConfig = {
     'fetch-docs',
     'Fetch Insforge documentation. Use "instructions" for essential backend setup (MANDATORY FIRST), or select specific SDK docs for database, auth, storage, functions, or AI integration.',
     {
-      docType: z
-        .enum(['instructions', 'db-sdk', 'storage-sdk', 'functions-sdk', 'ai-integration-sdk','auth-components-react'])
-        .describe(
-          'Documentation type: "instructions" (essential backend setup - use FIRST), "db-sdk" (database operations), "storage-sdk" (file storage), "functions-sdk" (edge functions), "ai-integration-sdk" (AI features), "auth-components-react" (authentication components for React+Vite applications).'
-        ),
+      docType: docTypeSchema
     },
     withUsageTracking('fetch-docs', async ({ docType }) => {
       try {
