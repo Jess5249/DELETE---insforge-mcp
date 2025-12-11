@@ -209,7 +209,7 @@ export function registerInsforgeTools(server: McpServer, config: ToolsConfig = {
 
       // Check for 404 before processing response
       if (response.status === 404) {
-        throw new Error('Documentation not found. Try upgrading your Insforge project version.');
+        throw new Error('Documentation not found. This feature may not be supported in your project version. Please contact the Insforge team for assistance.');
       }
 
       const result = await handleApiResponse(response);
