@@ -502,11 +502,11 @@ export function registerInsforgeTools(server: McpServer, config: ToolsConfig = {
 
   server.tool(
     'download-template',
-    'CRITICAL: MANDATORY FIRST STEP for all new InsForge projects. Download pre-configured starter template (React) to a temporary directory. After download, you MUST copy files to current directory using the provided command.',
+    'CRITICAL: MANDATORY FIRST STEP for all new InsForge projects. Download pre-configured starter template to a temporary directory. After download, you MUST copy files to current directory using the provided command.',
     {
       frame: z
-        .enum(['react'])
-        .describe('Framework to use for the template (currently only React is supported)'),
+        .enum(['react', 'nextjs'])
+        .describe('Framework to use for the template (support React and Next.js)'),
       projectName: z
         .string()
         .optional()
